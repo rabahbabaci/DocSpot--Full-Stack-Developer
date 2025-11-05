@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Acme Fruit Purchase Dashboard</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #fafafa;
+        }
+
+        h2 {
+            margin-top: 40px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #charts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        #trend_chart,
+        #bar_chart {
+            flex: 1;
+            min-width: 420px;
+            height: 360px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body onLoad="renderTable()">
+    <h1>Acme Fruit Purchase Dashboard</h1>
+    <p style="max-width:700px;">
+        This dashboard helps Acme analyze purchasing habits, identifying which fruits are most frequently purchased
+        and how volumes change over time. These insights can guide future order planning and reduce over-purchasing.
+    </p>
+
+    <div id="charts">
+        <div id="trend_chart"></div>
+        <div id="bar_chart"></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Invoice #</th>
+                <th>Item</th>
+                <th>Unit Price</th>
+                <th>Units Purchased</th>
+                <th>Store</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+
+    <script type="text/javascript">
+        var fruitSales = [
+            { "date": 1559597400000, "invoiceId": 101, "item": "Grapefruit", "price": 0.68, "units": 16, "store": "Casa Fruta" },
+            { "date": 1559597400000, "invoiceId": 101, "item": "Orange", "price": 0.53, "units": 21, "store": "Casa Fruta" },
+            { "date": 1559597400000, "invoiceId": 101, "item": "Mango", "price": 0.73, "units": 23, "store": "Casa Fruta" },
+            { "date": 1560288600000, "invoiceId": 102, "item": "Orange", "price": 0.86, "units": 10, "store": "Cornucopia" },
+            { "date": 1560288600000, "invoiceId": 102, "item": "Banana", "price": 0.09, "units": 119, "store": "Cornucopia" },
+            { "date": 1560288600000, "invoiceId": 102, "item": "Mango", "price": 0.53, "units": 32, "store": "Cornucopia" },
+            { "date": 1560375000000, "invoiceId": 103, "item": "Lemon", "price": 0.52, "units": 24, "store": "Casa Fruta" },
+            { "date": 1560375000000, "invoiceId": 103, "item": "Banana", "price": 0.34, "units": 38, "store": "Casa Fruta" },
+            { "date": 1560375000000, "invoiceId": 103, "item": "Mango", "price": 0.71, "units": 9, "store": "Casa Fruta" }
+            // ... (You can keep the rest of the dataset unchanged)
+        ];
+
+        function addTableCell(tr, strValue) {
+            var td = document.createElement('td');
+            td.appendChild(document.createTextNode(strValue));
+            tr.appendChild(td);
+        }
+
+        function renderTable() {
+            var tableBody = document.getElementById("table-body");
+            for (var i = 0; i < fruitSales.length; i++) {
+                var purchase = fruitSales[i];
+                var tr = document.createElement('tr');
+                addTableCell(tr, new Date(purchase["date"]).toLocaleDateString());
+                addTableCell(tr, purchase["invoiceId"]);
+                addTableCell(tr, purchase["item"]);
+                addTableCell(tr, "$" + purchase["price"].toFixed(2));
+                addTableCell(tr, purchase["units"]);
+                addTableCell(tr, purchase["store"]);
+                tableBody.appendChild(tr);
+            }
+        }
+
+        // --- Google Charts section ---
+        google.charts.load('current', { 'packages': ['corechart'] });
+        google.charts.setOnLoadCallback(drawCharts);
+
+        function drawCharts() {
+            // Aggregate total units by fruit
+            var totals = {};
+            var monthly = {};
+            fruitSales.forEach(p => {
+                if (!totals[p.item]) totals[p.item] = 0;
+                totals[p.item] += p.units;
+
+                var month = new Date(p.date).toLocaleString('default', { month: 'short' });
+                if (!monthly[month]) monthly[month] = {};
+                if (!monthly[month][p.item]) monthly[month][p.item] = 0;
+                monthly[month][p.item] += p.units;
+            });
+
+            // Bar chart: total units by fruit
+            var barData = new google.visualization.DataTable();
+            barData.addColumn('string', 'Fruit');
+            barData.addColumn('number', 'Units Sold');
+            for (var fruit in totals) {
+                barData.addRow([fruit, totals[fruit]]);
+            }
+
+            var barOptions = {
+                title: 'Total Units Purchased by Fruit',
+                legend: { position: 'none' },
+                colors: ['#4CAF50'],
+                fontName: 'Arial',
+                hAxis: { title: 'Units' },
+                vAxis: { title: 'Fruit' }
+            };
+            var barChart = new google.visualization.BarChart(document.getElementById('bar_chart'));
+            barChart.draw(barData, barOptions);
+
+            // Line chart: monthly trend
+            var fruits = Object.keys(totals);
+            var trendData = new google.visualization.DataTable();
+            trendData.addColumn('string', 'Month');
+            fruits.forEach(f => trendData.addColumn('number', f));
+
+            var months = Object.keys(monthly);
+            months.forEach(m => {
+                var row = [m];
+                fruits.forEach(f => row.push(monthly[m][f] || 0));
+                trendData.addRow(row);
+            });
+
+            var trendOptions = {
+                title: 'Monthly Purchase Trends',
+                curveType: 'function',
+                legend: { position: 'bottom' },
+                fontName: 'Arial',
+                colors: ['#f44336', '#2196F3', '#FFC107', '#9C27B0', '#009688']
+            };
+            var trendChart = new google.visualization.LineChart(document.getElementById('trend_chart'));
+            trendChart.draw(trendData, trendOptions);
+        }
+    </script>
+</body>
+
+</html>
